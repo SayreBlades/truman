@@ -2,5 +2,7 @@
 .env
 **/.assets/
 
-# Docker
-onecli-data/
+# Python / uv
+.venv/
+__pycache__/
+*.pyc

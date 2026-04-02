@@ -26,13 +26,16 @@ RUN npm install -g @mariozechner/pi-coding-agent
 # node:22-bookworm-slim ships with user "node" (UID 1000). Rename to "pi".
 RUN usermod -l pi -d /home/pi -m node \
     && groupmod -n pi node \
-    && mkdir -p /home/pi/.pi/agent/skills /workspace \
+    && mkdir -p /home/pi/.pi/agent/skills /home/pi/.pi/agent/prompts /workspace \
     && chown -R pi:pi /home/pi /workspace
 
 # ── 5. Skills — staged at /opt/pi-staging (NOT under the volume) ─
 #    The entrypoint syncs these into the volume on every start,
 #    so rebuilds with updated skills take effect without wiping sessions.
 COPY --from=skills pi-skills      /opt/pi-staging/skills/pi-skills
+
+# ── 5b. Prompts — staged alongside skills ────────────────────────
+COPY --from=prompts . /opt/pi-staging/prompts
 
 # ── 6. Default settings (staged) ─────────────────────────────────
 RUN echo '{\n  "defaultProvider": "anthropic",\n  "defaultModel": "claude-sonnet-4-20250514",\n  "defaultThinkingLevel": "high"\n}' \

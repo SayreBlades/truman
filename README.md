@@ -125,6 +125,14 @@ make build
 Included: brave-search, gccli, gdcli, gmcli, transcribe, youtube-transcript, polymarket.
 Excluded (need host resources): browser-tools, vscode.
 
+## Prompts
+
+Prompt templates from `~/.pi/agent/prompts/` are baked into the image at build time and synced into the container on every start. Rebuild to pick up changes:
+
+```bash
+make build
+```
+
 ## Sessions
 
 Sessions persist in a named Docker volume (`pi-data`). They survive `docker compose down` and container recreation. To wipe everything:

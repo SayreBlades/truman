@@ -20,6 +20,11 @@ if [ -d /opt/pi-staging/skills ]; then
     rsync -a --delete /opt/pi-staging/skills/ /home/pi/.pi/agent/skills/
 fi
 
+# Sync baked-in prompts into the persistent volume.
+if [ -d /opt/pi-staging/prompts ]; then
+    rsync -a --delete /opt/pi-staging/prompts/ /home/pi/.pi/agent/prompts/
+fi
+
 # Seed default settings only if none exist yet (preserve user changes)
 if [ ! -f /home/pi/.pi/agent/settings.json ]; then
     cp /opt/pi-staging/settings.json /home/pi/.pi/agent/settings.json

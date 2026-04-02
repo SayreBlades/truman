@@ -19,6 +19,7 @@ services:
       context: .
       additional_contexts:
         skills: ~/.pi/agent/skills
+        prompts: ~/.pi/agent/prompts
     stdin_open: true       # -i
     tty: true              # -t
     volumes:

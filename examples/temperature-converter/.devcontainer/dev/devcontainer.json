@@ -1,0 +1,22 @@
+{
+  "name": "Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "remoteUser": "pi",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "GitHub.vscode-pull-request-github",
+        "eamodio.gitlens"
+      ]
+    }
+  }
+}

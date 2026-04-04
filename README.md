@@ -1,30 +1,42 @@
-# Truman Proxy
+# Truman
 
-**Secure, sandboxed [pi](https://github.com/badlogic/pi-mono) agent with credential injection.**
+**Sandboxed [pi](https://github.com/badlogic/pi-mono) agent runtime with credential injection.**
 
-Run pi inside a Docker container with zero-trust security:
+Truman provides a set of containers that give any project a secure, sandboxed AI coding agent. It complies with the [devcontainer specification](https://containers.dev), so it works with VS Code, the `devcontainer` CLI, GitHub Codespaces, and any other devcontainer-compatible tool.
+
 - 🔒 **Agent never sees real API keys** — gateway injects credentials transparently
 - 🌐 **Network isolation** — agent cannot access internet directly, only through MITM proxy
-- 🔄 **Auto-refreshing tokens** — OAuth tokens refresh automatically, no manual rotation
-- 📁 **Host filesystem access** — work on your projects with full pi capabilities
+- 🔄 **Auto-refreshing tokens** — OAuth tokens refresh automatically
+- 📁 **Works on any project** — drop `.devcontainer/` into your repo and go
 
 ## Quick Start
 
-**Prerequisites:** Docker Desktop + [pi](https://github.com/badlogic/pi-mono) installed on host
+### Prerequisites
+
+- Docker Desktop
+- [pi](https://github.com/badlogic/pi-mono) installed on the host (for OAuth login)
+- For VS Code: [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+- For CLI: `npm install -g @devcontainers/cli` (optional)
+
+### Add truman to your project
 
 ```bash
-# 1. Log in to Anthropic via pi on host (if not already)
-pi    # then type /login → select Anthropic
+# 1. Copy the template into your project
+cp -r template/.devcontainer/ /path/to/your-project/.devcontainer/
 
-# 2. Sync your OAuth refresh token
-make sync-token
+# 2. Sync your Anthropic credentials
+cd /path/to/your-project
+.devcontainer/sync-token.sh
 
-# 3. Add optional keys (Brave, GitHub) to .env
-# Edit .env — see .env.example for options
-
-# 4. Build and run
-make run
+# 3. Add to .gitignore
+echo '.devcontainer/.env' >> .gitignore
 ```
+
+Then start using it — see the [template README](template/README.md) for full usage instructions:
+
+- **[VS Code](template/README.md#vs-code)** — "Reopen in Container" for a full IDE experience
+- **[Devcontainer CLI](template/README.md#devcontainer-cli)** — `devcontainer up` + `devcontainer exec` from any terminal
+- **[Docker Compose](template/README.md#docker-compose-direct)** — `docker compose run --rm agent` for quick interactive sessions
 
 ## Architecture
 
@@ -49,108 +61,130 @@ flowchart TB
         Other["🌐 Other APIs"]
     end
     
-    Gateway -->|"Real OAuth tokens<br/>sk-ant-oat01-..."| Anthropic
-    Gateway -->|"Real API key<br/>BSA..."| Brave
-    Gateway -->|"Real PAT<br/>ghp_..."| GitHub
-    Gateway -->|"Blind TCP tunnel<br/>(no credential injection)"| Other
-    
-    classDef agent fill:#e1f5fe
-    classDef gateway fill:#fff3e0
-    classDef api fill:#f3e5f5
-    classDef network fill:#e8f5e8
-    
-    class Agent agent
-    class Gateway gateway
-    class Anthropic,Brave,GitHub,Other api
-    class SandboxNet,EgressNet network
+    Gateway -->|"Real OAuth tokens"| Anthropic
+    Gateway -->|"Real API key"| Brave
+    Gateway -->|"Real PAT"| GitHub
+    Gateway -->|"Blind TCP tunnel"| Other
 ```
 
 ### How It Works
 
 1. **Agent** sends all HTTPS requests with dummy API keys through `HTTPS_PROXY` to the gateway
-2. **Gateway** intercepts HTTPS traffic for configured hosts (Anthropic, Brave, GitHub) and performs MITM
+2. **Gateway** intercepts HTTPS traffic for configured hosts (Anthropic, Brave, GitHub) via MITM
 3. Gateway strips dummy credentials and injects real ones from `.env` before forwarding
 4. For non-configured hosts, gateway performs blind TCP tunneling (no credential injection)
-5. Agent runs on internal-only network with no direct internet access — all traffic must go through gateway
+5. Agent runs on internal-only network — all traffic must go through gateway
 6. Gateway automatically refreshes OAuth tokens proactively and reactively on 401 responses
 
 ### Credential Flow
 
-| Service        | Agent sees              | Gateway injects                              |
-|----------------|-------------------------|----------------------------------------------|
-| Anthropic API  | `sk-ant-oat01-DUMMY...` | Auto-refreshed OAuth token (from `.env`)     |
-| Brave Search   | `BSAdummy...`           | Real `BRAVE_API_KEY`                         |
-| GitHub API/git | `ghp_DUMMY...`          | Real `GH_TOKEN`                              |
+| Service        | Agent sees              | Gateway injects            |
+|----------------|-------------------------|----------------------------|
+| Anthropic API  | `sk-ant-oat01-DUMMY...` | Auto-refreshed OAuth token |
+| Brave Search   | `BSAdummy...`           | Real `BRAVE_API_KEY`       |
+| GitHub API/git | `ghp_DUMMY...`          | Real `GH_TOKEN`            |
 
-The gateway holds a long-lived **refresh token** for Anthropic and automatically obtains short-lived access tokens. Tokens are refreshed proactively before expiry and reactively on 401 responses — no manual token rotation needed.
+## Project Structure
 
-## Make Targets
-
-| Target               | Description                             |
-|----------------------|-----------------------------------------|
-| `make help`          | Show all available targets              |
-| `make build`         | Build all container images              |
-| `make run`           | Interactive CLI/TUI session             |
-| `make prompt p="…"`  | Single prompt                           |
-| `make rpc`           | RPC mode (JSONL on stdin/stdout)        |
-| `make shell`         | Bash shell in agent (for debugging)     |
-| `make shell-gateway` | Bash shell in gateway (for debugging)   |
-| `make logs`          | Stream gateway logs                     |
-| `make sync-token`    | Sync Anthropic OAuth token from host pi |
-| `make clean`         | Remove containers, volumes, and images  |
-
-## API Keys
-
-**Security model:** Agent only sees dummy credentials, gateway holds real ones.
-
-| File         | Contains                  | Read by           | Git status           |
-|--------------|---------------------------|-------------------|----------------------|
-| `.env`       | Real API keys             | Gateway container | **gitignored**       |
-| `.env.agent` | Dummy keys + proxy config | Agent container   | **committed** (safe) |
-
-### Required in `.env`
-
-```bash
-# Recommended: OAuth refresh token (auto-refreshes, never expires)
-ANTHROPIC_REFRESH_TOKEN=sk-ant-ort01-...
-
-# Alternatives (pick one):
-# ANTHROPIC_OAUTH_TOKEN=sk-ant-oat01-...   # Static OAuth token (expires in hours)
-# ANTHROPIC_API_KEY=sk-ant-api03-...        # API key (requires paid API plan)
+```
+truman/
+├── images/
+│   ├── gateway/          # MITM credential-injection proxy
+│   │   ├── Dockerfile
+│   │   ├── gateway.py
+│   │   └── requirements.txt
+│   └── agent/            # Pi coding agent container
+│       ├── Dockerfile
+│       └── entrypoint.sh
+├── template/             # Copy into your project
+│   └── .devcontainer/
+│       ├── devcontainer.json
+│       ├── docker-compose.yml
+│       ├── .env.example
+│       ├── .env.agent
+│       ├── setup.sh
+│       └── sync-token.sh
+├── examples/
+│   └── temperature-converter/
+└── docs/
 ```
 
-Use `make sync-token` to extract the refresh token from your host pi installation automatically.
+## Container Images
 
-### Optional in `.env`
+Published to GitHub Container Registry:
 
-```bash
-BRAVE_API_KEY=BSAp-...
-GH_TOKEN=ghp_...   # GitHub PAT for gh CLI and git operations
+| Image                                | Purpose                              |
+|--------------------------------------|--------------------------------------|
+| `ghcr.io/sayreblades/truman-gateway` | MITM proxy with credential injection |
+| `ghcr.io/sayreblades/truman-agent`   | Pi coding agent with tools           |
+
+## Skills & Prompts
+
+Three ways to provide pi skills and prompts to the agent:
+
+### (a) Baked into an extended image
+
+```dockerfile
+FROM ghcr.io/sayreblades/truman-agent:latest
+COPY my-skills/ /opt/pi-staging/skills/my-skills/
+COPY my-prompts/ /opt/pi-staging/prompts/
 ```
+
+### (b) Mounted at runtime
+
+In `docker-compose.yml`:
+
+```yaml
+agent:
+  volumes:
+    - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
+    - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
+```
+
+The template includes this by default — if pi is installed on the host, its skills are automatically available.
+
+### (c) Both
+
+Baked skills load first, then mounted skills overlay on top. Same-name skills from the mount take priority.
+
+## Devcontainer Compliance
+
+Truman uses the [docker-compose variant](https://containers.dev/implementors/json_reference/) of the devcontainer spec:
+
+- `devcontainer.json` → `"dockerComposeFile"` + `"service": "agent"`
+- Works with VS Code Dev Containers extension
+- Works with `devcontainer` CLI (`devcontainer up`, `devcontainer exec`)
+- Works with GitHub Codespaces
+- Works with DevPod
 
 ## Adding New Services
 
 To add credential injection for a new API:
 
-1. Add hostname + header rules to `INTERCEPT_RULES` in `gateway/gateway.py`
-2. Add real credential to `.env`
-3. Add dummy value to `.env.agent`
+1. Add hostname + header rules to `INTERCEPT_RULES` in `images/gateway/gateway.py`
+2. Add real credential to `.devcontainer/.env`
+3. Add dummy value to `.devcontainer/.env.agent`
 
-Done — any tool using that API gets automatic credential injection.
+## Usage
 
-## Skills & Prompts
+See the **[template README](template/README.md)** for detailed instructions on:
 
-**Skills** from `~/.pi/agent/skills/` and **prompts** from `~/.pi/agent/prompts/` are baked into the image at build time. Run `make build` to pick up changes.
+- [VS Code integration](template/README.md#vs-code) — open project, "Reopen in Container", full IDE experience
+- [Devcontainer CLI](template/README.md#devcontainer-cli) — `devcontainer up` / `devcontainer exec` from any terminal
+- [Docker Compose](template/README.md#docker-compose-direct) — direct `docker compose run` for scripting
+- [Customization](template/README.md#customization) — extending images, baking in skills
 
-- **Included skills:** brave-search, gccli, gdcli, gmcli, transcribe, youtube-transcript, polymarket
-- **Excluded skills:** browser-tools, vscode (require host resources)
+## Development (building truman itself)
 
-## Sessions
-
-Sessions persist in Docker volume `pi-data` and survive container restarts. To wipe: `make clean`
+```bash
+make build          # Build gateway + agent images locally
+make test-example   # Test with the temperature-converter example
+make publish        # Push images to ghcr.io
+make clean          # Remove locally-built images
+```
 
 ## Design Documents
 
-- [Full plan](docs/plan.md)
+- [Architecture plan](docs/plan.md)
 - [Phase 1: Docker container](docs/plan-phase-1.md)
 - [Phase 2: Secret gateway + network isolation](docs/plan-phase-2.md)

@@ -1,7 +1,7 @@
 [project]
-name = "devcontainer"
+name = "temperature-converter"
 version = "0.1.0"
-description = "Add your description here"
+description = "Example project demonstrating truman devcontainer usage"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

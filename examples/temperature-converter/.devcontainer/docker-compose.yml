@@ -1,0 +1,69 @@
+# Truman example: temperature converter
+# Three services: gateway (proxy), agent (sandboxed AI), dev (human developer).
+# Uses published images (run `make build` from repo root to build locally).
+
+services:
+  gateway:
+    image: ghcr.io/sayreblades/truman-gateway:latest
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - gateway-data:/data
+    networks:
+      - sandbox
+      - egress
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  agent:
+    # Sandboxed — AI agent runs here, all traffic through gateway
+    image: ghcr.io/sayreblades/truman-agent:latest
+    volumes:
+      - ..:/workspace
+      - /dev/null:/workspace/.devcontainer/.env:ro
+      - /dev/null:/workspace/.devcontainer/.env.example:ro
+      - pi-data:/home/pi/.pi/agent
+      # Mount host pi skills/prompts if available
+      - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
+      - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
+    env_file:
+      - path: .env.agent
+        required: true
+    environment:
+      - HTTPS_PROXY=http://gateway:8080
+      - HTTP_PROXY=http://gateway:8080
+      - NO_PROXY=gateway
+      - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/gateway-ca.crt
+      - NODE_OPTIONS=--use-env-proxy
+      - NODE_NO_WARNINGS=1
+    networks:
+      - sandbox
+    depends_on:
+      gateway:
+        condition: service_healthy
+    working_dir: /workspace
+    command: sleep infinity
+
+  dev:
+    # Normal dev environment — human works here.
+    # Direct internet access, port forwarding, no proxy or pi tooling.
+    image: ghcr.io/sayreblades/truman-agent:latest
+    volumes:
+      - ..:/workspace
+    networks:
+      - egress
+    working_dir: /workspace
+    command: sleep infinity
+
+networks:
+  sandbox:
+    internal: true    # Agent cannot reach internet directly
+  egress:             # Gateway and dev can reach internet
+
+volumes:
+  pi-data:
+  gateway-data:

@@ -1,4 +1,12 @@
-# ── Pi Agent Container ─────────────────────────────────────────────
+# ── Truman Pi Agent Container ──────────────────────────────────────
+# Base image for the sandboxed pi coding agent.
+# Published as ghcr.io/sayreblades/truman-agent
+#
+# Skills & prompts are NOT baked in by default. They can be provided via:
+#   (a) Extended Dockerfile: COPY into /opt/pi-staging/skills/
+#   (b) Volume mount at runtime: mount to /opt/pi-custom/skills/
+#   (c) Both — baked defaults + runtime overlay
+#
 # Base: Node 22 on Debian Bookworm (slim)
 FROM node:22-bookworm-slim
 
@@ -29,13 +37,14 @@ RUN usermod -l pi -d /home/pi -m node \
     && mkdir -p /home/pi/.pi/agent/skills /home/pi/.pi/agent/prompts /workspace \
     && chown -R pi:pi /home/pi /workspace
 
-# ── 5. Skills — staged at /opt/pi-staging (NOT under the volume) ─
-#    The entrypoint syncs these into the volume on every start,
-#    so rebuilds with updated skills take effect without wiping sessions.
-COPY --from=skills pi-skills      /opt/pi-staging/skills/pi-skills
-
-# ── 5b. Prompts — staged alongside skills ────────────────────────
-COPY --from=prompts . /opt/pi-staging/prompts
+# ── 5. Staging & custom directories ──────────────────────────────
+#    /opt/pi-staging/  — for skills/prompts baked into extended images
+#    /opt/pi-custom/   — mount point for runtime-provided skills/prompts
+#
+#    The entrypoint syncs staging (with --delete) then overlays custom
+#    into the persistent volume at /home/pi/.pi/agent/ on every start.
+RUN mkdir -p /opt/pi-staging/skills /opt/pi-staging/prompts \
+             /opt/pi-custom/skills  /opt/pi-custom/prompts
 
 # ── 6. Default settings (staged) ─────────────────────────────────
 RUN echo '{\n  "defaultProvider": "anthropic",\n  "defaultModel": "claude-sonnet-4-20250514",\n  "defaultThinkingLevel": "high"\n}' \
@@ -46,7 +55,7 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # ── 8. Fix ownership ─────────────────────────────────────────────
-RUN chown -R pi:pi /home/pi /opt/pi-staging
+RUN chown -R pi:pi /home/pi /opt/pi-staging /opt/pi-custom
 
 # ── Switch to non-root user ──────────────────────────────────────
 # NOTE: We do NOT set USER here. The entrypoint runs as root to install

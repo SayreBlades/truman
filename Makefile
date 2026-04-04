@@ -1,48 +1,65 @@
-.PHONY: help build run prompt rpc shell shell-gateway logs clean sync-token
+.PHONY: help build build-gateway build-agent publish \
+       test-example clean sync-token
+
+IMAGE_PREFIX := ghcr.io/sayreblades
+GATEWAY_IMAGE := $(IMAGE_PREFIX)/truman-gateway
+AGENT_IMAGE := $(IMAGE_PREFIX)/truman-agent
+VERSION := latest
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build all container images
-	docker compose build gateway
-	docker compose build agent
+# ── Image Build ──────────────────────────────────────────────────
 
-run: build ## Interactive CLI/TUI
-	docker compose run --rm agent
+build: build-gateway build-agent ## Build all container images
 
-prompt: build ## Single prompt: make prompt p="tell me a joke"
-	docker compose run --rm agent pi -p "$(p)"
+build-gateway: ## Build gateway image
+	docker build -t $(GATEWAY_IMAGE):$(VERSION) images/gateway/
 
-rpc: build ## RPC mode (JSONL on stdin/stdout)
-	docker compose run --rm -T agent pi --mode rpc
+build-agent: ## Build agent image
+	docker build -t $(AGENT_IMAGE):$(VERSION) images/agent/
 
-shell: build ## Shell into the agent container (for debugging)
-	docker compose run --rm agent bash
+# ── Publish ──────────────────────────────────────────────────────
 
-shell-gateway: build ## Shell into the gateway container (for debugging)
-	docker compose run --rm gateway bash
+publish: build ## Build and push images to ghcr.io
+	docker push $(GATEWAY_IMAGE):$(VERSION)
+	docker push $(AGENT_IMAGE):$(VERSION)
 
-logs: ## Show gateway logs
-	docker compose logs -f gateway
+# ── Example Testing ──────────────────────────────────────────────
 
-sync-token: ## Sync Anthropic OAuth refresh token from host pi into .env
+test-example: build ## Build images, then devcontainer up on example
+	@echo "Testing temperature-converter example..."
+	@cd examples/temperature-converter && \
+		devcontainer up --workspace-folder . 2>&1 | tail -5
+	@echo ""
+	@echo "✅ Example container started. To interact:"
+	@echo "   docker exec -it $$(docker ps -qf 'name=temperature.*agent') bash"
+	@echo ""
+	@echo "   To tear down:"
+	@echo "   make clean-example"
+
+clean-example: ## Stop example containers
+	@cd examples/temperature-converter && \
+		docker compose -f .devcontainer/docker-compose.yml down -v 2>/dev/null || true
+
+# ── Utilities ────────────────────────────────────────────────────
+
+sync-token: ## Sync Anthropic OAuth refresh token from host pi
 	@AUTH_FILE="$$HOME/.pi/agent/auth.json"; \
 	if [ ! -f "$$AUTH_FILE" ]; then \
 		echo "Error: $$AUTH_FILE not found. Run 'pi' and '/login' first." >&2; exit 1; \
 	fi; \
 	REFRESH=$$(python3 -c "import json; print(json.load(open('$$AUTH_FILE'))['anthropic']['refresh'])" 2>/dev/null); \
 	if [ -z "$$REFRESH" ]; then \
-		echo "Error: No Anthropic OAuth credentials in $$AUTH_FILE. Run 'pi' and '/login' first." >&2; exit 1; \
+		echo "Error: No Anthropic OAuth credentials in $$AUTH_FILE." >&2; exit 1; \
 	fi; \
-	if [ -f .env ] && grep -q '^ANTHROPIC_REFRESH_TOKEN=' .env; then \
-		sed -i '' "s|^ANTHROPIC_REFRESH_TOKEN=.*|ANTHROPIC_REFRESH_TOKEN=$$REFRESH|" .env; \
-	elif [ -f .env ]; then \
-		echo "ANTHROPIC_REFRESH_TOKEN=$$REFRESH" >> .env; \
-	else \
-		echo "ANTHROPIC_REFRESH_TOKEN=$$REFRESH" > .env; \
-	fi; \
-	echo "✓ Synced ANTHROPIC_REFRESH_TOKEN into .env"
+	echo "Token: $${REFRESH:0:20}..."; \
+	echo ""; \
+	echo "To use in a project, run from the project directory:"; \
+	echo "  .devcontainer/sync-token.sh"
 
-clean: ## Remove containers, volumes, and images
-	docker compose down -v --rmi local
+clean: ## Remove locally-built truman images
+	docker rmi $(GATEWAY_IMAGE):$(VERSION) 2>/dev/null || true
+	docker rmi $(AGENT_IMAGE):$(VERSION) 2>/dev/null || true
+	@echo "✅ Cleaned truman images"

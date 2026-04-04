@@ -134,6 +134,170 @@ docker compose -f .devcontainer/docker-compose.yml run --rm agent bash
 
 This is useful for scripting or when you don't need devcontainer features.
 
+## VS Code vs Devcontainer CLI: Limitations
+
+VS Code provides features that the devcontainer CLI does not:
+
+| Feature | VS Code | Devcontainer CLI |
+|---------|---------|------------------|
+| Automatic port forwarding | ✅ Detects new listeners, tunnels to host | ❌ No port forwarding |
+| Port auto-detection | ✅ Notification + "Open in Browser" | ❌ |
+| `forwardPorts` / `portsAttributes` | ✅ Full support | ❌ Ignored |
+| Extension installation | ✅ Installs in container | ❌ N/A |
+| Interactive terminal | ✅ Integrated | ✅ Via `devcontainer exec ... bash` |
+| Run commands | ✅ Terminal | ✅ `devcontainer exec` |
+
+The devcontainer CLI is a headless tool — it starts containers and runs commands, but there is no background process watching for new port listeners or managing tunnels. If you're running a web server inside the sandboxed agent container, you won't be able to reach it from your host browser via the CLI alone.
+
+### Solution: Multi-Container Setup (Agent + Dev)
+
+You can add a **second devcontainer** to the same project — a normal development environment that shares the source tree but has direct internet access and full port forwarding. This gives you:
+
+- **Agent container** — sandboxed, all traffic through gateway (for the AI)
+- **Dev container** — normal dev experience with port forwarding (for the human)
+
+Both share the same workspace and run simultaneously.
+
+#### Directory structure
+
+```
+.devcontainer/
+├── docker-compose.yml        # Shared: gateway + agent + dev (3 services)
+├── .env                      # Real secrets (gitignored)
+├── .env.agent                # Dummy keys (committed)
+├── agent/
+│   └── devcontainer.json     # Attaches to "agent" — sandboxed
+└── dev/
+    └── devcontainer.json     # Attaches to "dev" — normal dev experience
+```
+
+#### docker-compose.yml (3 services)
+
+```yaml
+services:
+  gateway:
+    image: ghcr.io/sayreblades/truman-gateway:latest
+    env_file: .env
+    volumes:
+      - gateway-data:/data
+    networks: [sandbox, egress]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  agent:
+    # Sandboxed — AI agent runs here, all traffic through gateway
+    image: ghcr.io/sayreblades/truman-agent:latest
+    volumes:
+      - ..:/workspace
+      - /dev/null:/workspace/.devcontainer/.env:ro
+      - pi-data:/home/pi/.pi/agent
+      - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
+      - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
+    env_file: [{ path: .env.agent, required: true }]
+    environment:
+      - HTTPS_PROXY=http://gateway:8080
+      - HTTP_PROXY=http://gateway:8080
+      - NO_PROXY=gateway
+      - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/gateway-ca.crt
+      - NODE_OPTIONS=--use-env-proxy
+      - NODE_NO_WARNINGS=1
+    networks: [sandbox]
+    depends_on: { gateway: { condition: service_healthy } }
+    working_dir: /workspace
+    command: sleep infinity
+
+  dev:
+    # Normal dev environment — human works here
+    image: ghcr.io/sayreblades/truman-agent:latest
+    volumes:
+      - ..:/workspace
+      - /dev/null:/workspace/.devcontainer/.env:ro
+    networks:
+      - sandbox     # Can talk to gateway and agent
+      - egress      # Direct internet access
+    working_dir: /workspace
+    command: sleep infinity
+
+networks:
+  sandbox: { internal: true }
+  egress:
+
+volumes:
+  pi-data:
+  gateway-data:
+```
+
+#### agent/devcontainer.json
+
+```json
+{
+  "name": "Agent (Sandboxed)",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "remoteUser": "pi",
+  "shutdownAction": "none"
+}
+```
+
+#### dev/devcontainer.json
+
+```json
+{
+  "name": "Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "remoteUser": "pi",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "GitHub.vscode-pull-request-github",
+        "eamodio.gitlens"
+      ]
+    }
+  }
+}
+```
+
+#### Using multiple devcontainers
+
+**VS Code** — when you "Reopen in Container," VS Code shows a picker:
+
+- **Agent (Sandboxed)** — for interacting with the AI agent
+- **Development** — for normal coding with port forwarding
+
+You can open both simultaneously in separate VS Code windows.
+
+**Devcontainer CLI** — use `--config` to select:
+
+```bash
+# Start all containers
+devcontainer up --workspace-folder . --config .devcontainer/dev/devcontainer.json
+
+# Work in the dev container (port forwarding, internet access)
+devcontainer exec --workspace-folder . --config .devcontainer/dev/devcontainer.json bash
+
+# Or attach to the sandboxed agent
+devcontainer exec --workspace-folder . --config .devcontainer/agent/devcontainer.json pi
+```
+
+|                     | Agent container           | Dev container                      |
+|---------------------|---------------------------|------------------------------------|
+| **Purpose**         | AI agent (pi)             | Human developer                    |
+| **Network**         | `sandbox` only (isolated) | `sandbox` + `egress` (full access) |
+| **Internet**        | Through gateway only      | Direct                             |
+| **Port forwarding** | No (by design)            | ✅ Works in VS Code                |
+| **Credentials**     | Dummy (gateway injects)   | No credential injection            |
+
 ## Customization
 
 ### Adding project-specific tools

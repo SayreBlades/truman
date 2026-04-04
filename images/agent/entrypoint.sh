@@ -13,22 +13,36 @@ if [ -n "$HTTPS_PROXY" ]; then
 fi
 
 # ── Security: verify real secrets aren't leaked into workspace ────
-if [ -f /workspace/.env ] && grep -qE 'sk-ant-ort01-|BSAp-|gho_' /workspace/.env 2>/dev/null; then
-    echo "⚠️  WARNING: Real secrets detected in /workspace/.env!" >&2
-    echo "   Container may be misconfigured. Check volume mounts." >&2
-fi
+for env_path in /workspace/.env /workspace/.devcontainer/.env; do
+    if [ -f "$env_path" ] && grep -qE 'sk-ant-ort01-|BSAp-|gho_' "$env_path" 2>/dev/null; then
+        echo "⚠️  WARNING: Real secrets detected in $env_path!" >&2
+        echo "   Container may be misconfigured. Check volume mounts." >&2
+    fi
+done
 
 # ── Skills sync ──────────────────────────────────────────────────
-# Sync baked-in skills from the image staging area into the persistent volume.
-# This ensures rebuilds with updated skills take effect without wiping sessions.
-# rsync --delete ensures removed skills are cleaned up too.
+# Layer 1: Sync baked-in skills from the image staging area.
+#   Uses --delete so that image rebuilds with changed skills take effect.
+#   If staging is empty (base image, no extension), this clears old skills.
 if [ -d /opt/pi-staging/skills ]; then
     rsync -a --delete /opt/pi-staging/skills/ /home/pi/.pi/agent/skills/
 fi
 
-# Sync baked-in prompts into the persistent volume.
+# Layer 2: Overlay custom/mounted skills (additive, no --delete).
+#   These are mounted at runtime via docker-compose volumes.
+#   Overlays on top of baked skills — same-name skills are overwritten.
+if [ -d /opt/pi-custom/skills ] && [ "$(ls -A /opt/pi-custom/skills 2>/dev/null)" ]; then
+    rsync -a /opt/pi-custom/skills/ /home/pi/.pi/agent/skills/
+fi
+
+# ── Prompts sync ─────────────────────────────────────────────────
+# Same two-layer approach as skills.
 if [ -d /opt/pi-staging/prompts ]; then
     rsync -a --delete /opt/pi-staging/prompts/ /home/pi/.pi/agent/prompts/
+fi
+
+if [ -d /opt/pi-custom/prompts ] && [ "$(ls -A /opt/pi-custom/prompts 2>/dev/null)" ]; then
+    rsync -a /opt/pi-custom/prompts/ /home/pi/.pi/agent/prompts/
 fi
 
 # Seed default settings only if none exist yet (preserve user changes)

@@ -1,0 +1,23 @@
+{
+  "name": "Truman – Sandboxed Pi Agent",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "remoteUser": "pi",
+  "shutdownAction": "stopCompose",
+  "initializeCommand": ".devcontainer/setup.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "GitHub.vscode-pull-request-github",
+        "eamodio.gitlens"
+      ]
+    }
+  }
+}

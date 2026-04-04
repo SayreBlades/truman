@@ -1,0 +1,55 @@
+# Truman: sandboxed pi agent with credential-injecting gateway.
+# Copy this file (and the rest of .devcontainer/) into your project.
+# See https://github.com/SayreBlades/truman for details.
+
+services:
+  gateway:
+    image: ghcr.io/sayreblades/truman-gateway:latest
+    env_file: .env
+    volumes:
+      - gateway-data:/data
+    networks:
+      - sandbox
+      - egress
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  agent:
+    image: ghcr.io/sayreblades/truman-agent:latest
+    volumes:
+      - ..:/workspace                                        # Project files
+      - /dev/null:/workspace/.devcontainer/.env:ro            # Hide real secrets
+      - /dev/null:/workspace/.devcontainer/.env.example:ro    # Hide template too
+      - pi-data:/home/pi/.pi/agent                           # Persistent sessions
+      # Mount host pi skills/prompts (remove if pi not installed on host)
+      - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
+      - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
+    env_file:
+      - path: .env.agent
+        required: true
+    environment:
+      - HTTPS_PROXY=http://gateway:8080
+      - HTTP_PROXY=http://gateway:8080
+      - NO_PROXY=gateway
+      - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/gateway-ca.crt
+      - NODE_OPTIONS=--use-env-proxy
+      - NODE_NO_WARNINGS=1
+    networks:
+      - sandbox
+    depends_on:
+      gateway:
+        condition: service_healthy
+    working_dir: /workspace
+    command: sleep infinity    # Keep alive for devcontainer attach
+
+networks:
+  sandbox:
+    internal: true    # Agent cannot reach internet directly
+  egress:             # Gateway can reach internet
+
+volumes:
+  pi-data:
+  gateway-data:

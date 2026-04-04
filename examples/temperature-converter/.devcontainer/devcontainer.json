@@ -1,0 +1,19 @@
+{
+  "name": "Temperature Converter (Truman Example)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "remoteUser": "pi",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  }
+}

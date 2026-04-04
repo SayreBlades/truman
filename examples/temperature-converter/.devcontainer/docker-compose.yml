@@ -1,6 +1,6 @@
 # Truman example: temperature converter
-# Three services: gateway (proxy), agent (sandboxed AI), dev (human developer).
-# Uses published images (run `make build` from repo root to build locally).
+# Sandboxed pi agent with credential-injecting gateway.
+# Copy this .devcontainer/ into a project to use Truman.
 
 services:
   gateway:
@@ -20,14 +20,13 @@ services:
       retries: 3
 
   agent:
-    # Sandboxed — AI agent runs here, all traffic through gateway
     image: ghcr.io/sayreblades/truman-agent:latest
     volumes:
-      - ..:/workspace
-      - /dev/null:/workspace/.devcontainer/.env:ro
-      - /dev/null:/workspace/.devcontainer/.env.example:ro
-      - pi-data:/home/pi/.pi/agent
-      # Mount host pi skills/prompts if available
+      - ..:/workspace                                        # Project files
+      - /dev/null:/workspace/.devcontainer/.env:ro            # Hide real secrets
+      - /dev/null:/workspace/.devcontainer/.env.example:ro    # Hide template too
+      - pi-data:/home/pi/.pi/agent                           # Persistent sessions
+      # Mount host pi skills/prompts (remove if pi not installed on host)
       - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
       - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
     env_file:
@@ -46,23 +45,12 @@ services:
       gateway:
         condition: service_healthy
     working_dir: /workspace
-    command: sleep infinity
-
-  dev:
-    # Normal dev environment — human works here.
-    # Direct internet access, port forwarding, no proxy or pi tooling.
-    image: ghcr.io/sayreblades/truman-agent:latest
-    volumes:
-      - ..:/workspace
-    networks:
-      - egress
-    working_dir: /workspace
-    command: sleep infinity
+    command: sleep infinity    # Keep alive for devcontainer attach
 
 networks:
   sandbox:
     internal: true    # Agent cannot reach internet directly
-  egress:             # Gateway and dev can reach internet
+  egress:             # Gateway can reach internet
 
 volumes:
   pi-data:

@@ -1,11 +1,12 @@
 {
-  "name": "Development",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "dev",
+  "name": "Temperature Converter – Sandboxed Pi Agent",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "agent",
   "workspaceFolder": "/workspace",
   "overrideCommand": false,
   "remoteUser": "pi",
   "shutdownAction": "stopCompose",
+  "initializeCommand": ".devcontainer/setup.sh",
   "customizations": {
     "vscode": {
       "settings": {

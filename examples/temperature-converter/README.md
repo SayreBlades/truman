@@ -1,21 +1,30 @@
 # Temperature Converter
 
-Example project demonstrating Truman's **single-container** devcontainer setup (same structure as `template/`).
+Example project demonstrating Truman's sandboxed devcontainer setup.
 
-A simple temperature conversion tool used as a sandbox for the pi coding agent.
+A simple temperature conversion tool used as a sandbox for the pi coding
+agent. The `.devcontainer/` directory is a copy of `template/.devcontainer/`
+with credentials already configured.
 
 ## Setup
 
 ```bash
-# From the truman repo root, build images locally:
-make build
-
-# Set up credentials:
+# Set up credentials (interactive wizard):
 cd examples/temperature-converter
-cp .devcontainer/.env.example .devcontainer/.env
-# Edit .devcontainer/.env with your real API keys
-# Or (recommended):
-.devcontainer/sync-token.sh
+.devcontainer/truman.sh init
+```
+
+## Running
+
+```bash
+# Start the devcontainer:
+.devcontainer/truman.sh start
+
+# Run pi inside the container:
+.devcontainer/truman.sh run-pi
+
+# Run pi with a single prompt:
+.devcontainer/truman.sh run-pi -p "explain this codebase"
 ```
 
 ## VS Code
@@ -23,21 +32,24 @@ cp .devcontainer/.env.example .devcontainer/.env
 1. Open `examples/temperature-converter` in VS Code
 2. **Cmd+Shift+P** → **Dev Containers: Reopen in Container**
 
-The devcontainer will run the sandboxed `agent` service (all network egress goes through the `gateway`).
-
-## Devcontainer CLI
-
-```bash
-devcontainer up --workspace-folder .
-devcontainer exec --workspace-folder . pi
-```
+The devcontainer starts both `gateway` and `agent` services. The agent is
+network-isolated — all HTTPS traffic goes through the gateway, which
+injects real credentials transparently.
 
 ## Teardown
 
 ```bash
-docker compose -p temperature-converter_devcontainer -f .devcontainer/docker-compose.yml down
-# Or wipe volumes:
-docker compose -p temperature-converter_devcontainer -f .devcontainer/docker-compose.yml down -v
+# Stop containers (preserves pi session data):
+.devcontainer/truman.sh stop
+
+# Stop and wipe all volumes (clean slate):
+.devcontainer/truman.sh stop -v
+```
+
+## Check Status
+
+```bash
+.devcontainer/truman.sh status
 ```
 
 ## Usage

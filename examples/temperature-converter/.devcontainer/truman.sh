@@ -6,7 +6,7 @@
 #   .devcontainer/truman.sh init       Interactive setup wizard
 #   .devcontainer/truman.sh start      Validate config + devcontainer up
 #   .devcontainer/truman.sh run-pi     devcontainer exec ... pi (args forwarded)
-#   .devcontainer/truman.sh stop       Stop containers
+#   .devcontainer/truman.sh stop [-v]   Stop containers (-v to wipe volumes)
 #   .devcontainer/truman.sh status     Show configuration & container status
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -561,7 +561,14 @@ cmd_run_pi() {
 }
 
 cmd_stop() {
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
+    local args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -v|--volumes) args+=(--volumes) ; shift ;;
+            *) err "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    docker compose -f "$SCRIPT_DIR/docker-compose.yml" down "${args[@]+"${args[@]}"}"
 }
 
 cmd_status() {
@@ -683,7 +690,7 @@ cmd_help() {
     echo "  init       Interactive setup wizard (creates gateway.yaml, .env.agent)"
     echo "  start      Validate config and start the devcontainer"
     echo "  run-pi     Run pi inside the container (args forwarded)"
-    echo "  stop       Stop all containers"
+    echo "  stop [-v]  Stop all containers (-v to wipe volumes)"
     echo "  status     Show configuration and container status"
     echo "  validate   Check configuration (non-interactive)"
     echo "  help       Show this help"
@@ -706,7 +713,7 @@ main() {
         validate) cmd_validate ;;
         start)    cmd_start ;;
         run-pi)   cmd_run_pi "$@" ;;
-        stop)     cmd_stop ;;
+        stop)     cmd_stop "$@" ;;
         status)   cmd_status ;;
         help|-h|--help) cmd_help ;;
         *)

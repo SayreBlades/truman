@@ -107,10 +107,10 @@ devcontainer exec --workspace-folder . gh repo view
 
 ```bash
 # Stop (preserves volumes / pi sessions)
-docker compose -f .devcontainer/docker-compose.yml down
+.devcontainer/truman.sh stop
 
 # Stop and wipe everything (clean slate)
-docker compose -f .devcontainer/docker-compose.yml down -v
+.devcontainer/truman.sh stop -v
 ```
 
 ## Docker Compose (direct)

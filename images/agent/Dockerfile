@@ -7,16 +7,30 @@
 #   (b) Volume mount at runtime: mount to /opt/pi-custom/skills/
 #   (c) Both — baked defaults + runtime overlay
 #
-# Base: Node 22 on Debian Bookworm (slim)
-FROM node:22-bookworm-slim
+# Base: Ubuntu 24.04 LTS with Node.js 22 and Python 3 dev environments
+FROM ubuntu:24.04
 
-# ── 1. System packages ────────────────────────────────────────────
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ── 1. Core system packages ───────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git curl ca-certificates python3 python3-pip python3-venv \
-        jq ripgrep procps less rsync gosu \
+        git curl ca-certificates gnupg \
+        jq ripgrep procps less rsync gosu sudo \
+        # Build essentials (native addons, C extensions, etc.)
+        build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# ── 1b. gh CLI ────────────────────────────────────────────────────
+# ── 2. Node.js 22 (via NodeSource) ───────────────────────────────
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── 3. Python 3 dev environment ──────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── 4. gh CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
@@ -24,20 +38,20 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# ── 2. uv (Python package manager) ───────────────────────────────
+# ── 5. uv (Python package manager) ───────────────────────────────
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# ── 3. Pi coding agent ───────────────────────────────────────────
+# ── 6. Pi coding agent ───────────────────────────────────────────
 RUN npm install -g @mariozechner/pi-coding-agent
 
-# ── 4. Non-root user ─────────────────────────────────────────────
-# node:22-bookworm-slim ships with user "node" (UID 1000). Rename to "pi".
-RUN usermod -l pi -d /home/pi -m node \
-    && groupmod -n pi node \
+# ── 7. Non-root user ─────────────────────────────────────────────
+# Ubuntu 24.04 ships with an "ubuntu" user at UID 1000. Replace it.
+RUN userdel -r ubuntu 2>/dev/null || true \
+    && useradd -m -s /bin/bash -u 1000 pi \
     && mkdir -p /home/pi/.pi/agent/skills /home/pi/.pi/agent/prompts /workspace \
     && chown -R pi:pi /home/pi /workspace
 
-# ── 5. Staging & custom directories ──────────────────────────────
+# ── 8. Staging & custom directories ──────────────────────────────
 #    /opt/pi-staging/  — for skills/prompts baked into extended images
 #    /opt/pi-custom/   — mount point for runtime-provided skills/prompts
 #
@@ -46,15 +60,15 @@ RUN usermod -l pi -d /home/pi -m node \
 RUN mkdir -p /opt/pi-staging/skills /opt/pi-staging/prompts \
              /opt/pi-custom/skills  /opt/pi-custom/prompts
 
-# ── 6. Default settings (staged) ─────────────────────────────────
+# ── 9. Default settings (staged) ─────────────────────────────────
 RUN echo '{\n  "defaultProvider": "anthropic",\n  "defaultModel": "claude-sonnet-4-20250514",\n  "defaultThinkingLevel": "high"\n}' \
     > /opt/pi-staging/settings.json
 
-# ── 7. Entrypoint — syncs staged content into the volume ─────────
+# ── 10. Entrypoint — syncs staged content into the volume ────────
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# ── 8. Fix ownership ─────────────────────────────────────────────
+# ── 11. Fix ownership ────────────────────────────────────────────
 RUN chown -R pi:pi /home/pi /opt/pi-staging /opt/pi-custom
 
 # ── Switch to non-root user ──────────────────────────────────────

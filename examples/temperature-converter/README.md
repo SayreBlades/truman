@@ -58,13 +58,17 @@ docker exec -it -u pi $(docker ps -qf "name=temperature.*dev") bash
 
 ### Teardown
 
+When containers were started with `devcontainer up`, you must use the same project name it created:
+
 ```bash
 # Stop (preserves volumes / pi sessions)
-docker compose -f .devcontainer/docker-compose.yml down
+docker compose -p temperature-converter_devcontainer -f .devcontainer/docker-compose.yml down
 
 # Stop and wipe everything (clean slate)
-docker compose -f .devcontainer/docker-compose.yml down -v
+docker compose -p temperature-converter_devcontainer -f .devcontainer/docker-compose.yml down -v
 ```
+
+> **Tip:** The project name is `<folder>_devcontainer`. If you're unsure, check with `docker ps` — the container names start with it.
 
 ### Docker Compose (direct)
 

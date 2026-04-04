@@ -213,26 +213,13 @@ services:
     command: sleep infinity
 
   dev:
-    # Normal dev environment — human works here
+    # Normal dev environment — human works here.
+    # Direct internet, port forwarding, no proxy or pi tooling.
     image: ghcr.io/sayreblades/truman-agent:latest
     volumes:
       - ..:/workspace
-      - /dev/null:/workspace/.devcontainer/.env:ro
-      - pi-data-dev:/home/pi/.pi/agent
-      - ~/.pi/agent/skills:/opt/pi-custom/skills:ro
-      - ~/.pi/agent/prompts:/opt/pi-custom/prompts:ro
-    env_file: [{ path: .env.agent, required: true }]
-    environment:
-      - HTTPS_PROXY=http://gateway:8080
-      - HTTP_PROXY=http://gateway:8080
-      - NO_PROXY=gateway
-      - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/gateway-ca.crt
-      - NODE_OPTIONS=--use-env-proxy
-      - NODE_NO_WARNINGS=1
     networks:
-      - sandbox     # Can talk to gateway and agent
-      - egress      # Direct internet access
-    depends_on: { gateway: { condition: service_healthy } }
+      - egress
     working_dir: /workspace
     command: sleep infinity
 
@@ -241,8 +228,7 @@ networks:
   egress:
 
 volumes:
-  pi-data:            # Agent sessions
-  pi-data-dev:        # Dev sessions (separate to avoid rsync conflicts)
+  pi-data:
   gateway-data:
 ```
 

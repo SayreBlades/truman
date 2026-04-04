@@ -1,13 +1,13 @@
 # Truman
 
-**Sandboxed [pi](https://github.com/badlogic/pi-mono) agent runtime with credential injection.**
+*Sandboxed [pi](https://github.com/badlogic/pi-mono) agent runtime with credential injection.*
 
 Truman provides a set of containers that give any project a secure, sandboxed AI coding agent. It complies with the [devcontainer specification](https://containers.dev), so it works with VS Code, the `devcontainer` CLI, GitHub Codespaces, and any other devcontainer-compatible tool.
 
-- 🔒 **Agent never sees real API keys** — gateway injects credentials transparently
-- 🌐 **Network isolation** — agent cannot access internet directly, only through MITM proxy
-- 🔄 **Auto-refreshing tokens** — OAuth tokens refresh automatically
-- 📁 **Works on any project** — drop `.devcontainer/` into your repo and go
+- **Agent never sees real API keys** — gateway injects credentials transparently
+- **Network isolation** — agent cannot access internet directly, only through MITM proxy
+- **Auto-refreshing tokens** — OAuth tokens refresh automatically
+- **Works on any project** — drop `.devcontainer/` into your repo and go
 
 ## Quick Start
 
@@ -38,9 +38,9 @@ See the **[devcontainer README](template/.devcontainer/README.md)** for full usa
 
 ```mermaid
 flowchart TB
-    subgraph Docker["🐳 Docker Environment"]
+    subgraph Docker["🐳 Docker Environment\n\n"]
         subgraph SandboxNet["🔒 sandbox network (internal only)"]
-            Agent["🤖 Agent Container<br/>• pi + gh CLI + tools<br/>• HTTPS_PROXY=gateway:8080<br/>• Only dummy API keys<br/>• Trusts gateway CA cert"]
+            Agent["🤖 Agent Container<br/>• pi + gh CLI + tools<br/>• HTTPS_PROXY=...<br/>• Only dummy API keys<br/>• Trusts gateway CA cert"]
         end
         
         subgraph EgressNet["🌐 egress network"]

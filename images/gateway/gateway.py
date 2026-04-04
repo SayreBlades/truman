@@ -53,18 +53,6 @@ CA_DIR = Path(os.environ.get("CA_DIR", "/data"))
 # Refresh 5 minutes before actual expiry
 TOKEN_REFRESH_MARGIN_S = 5 * 60
 
-# ── Well-known OAuth Provider Registry ───────────────────────────────
-# Protocol details only — no user credentials.
-
-OAUTH_PROVIDERS: dict[str, dict] = {
-    "anthropic": {
-        "token_url": "https://platform.claude.com/v1/oauth/token",
-        "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-        "content_type": "json",
-    },
-}
-
-
 # ── Generic OAuth Token Manager ──────────────────────────────────────
 
 class OAuthTokenManager:
@@ -396,22 +384,14 @@ def parse_host_rule(hostname: str, cfg: dict) -> HostRule:
         return HostRule(strip, inject, rule_type, api_key=api_key)
 
     elif rule_type == "oauth":
-        # Resolve provider defaults, then apply explicit overrides
-        provider_name = cfg.get("provider")
-        provider_defaults = (
-            OAUTH_PROVIDERS.get(provider_name, {}) if provider_name else {}
-        )
-
-        token_url = cfg.get("token_url", provider_defaults.get("token_url"))
-        client_id = cfg.get("client_id", provider_defaults.get("client_id"))
-        content_type = cfg.get(
-            "content_type", provider_defaults.get("content_type", "json"),
-        )
+        token_url = cfg.get("token_url")
+        client_id = cfg.get("client_id")
+        content_type = cfg.get("content_type", "json")
 
         if not token_url or not client_id:
             raise ValueError(
-                f"OAuth rule for {hostname}: must specify 'provider' or "
-                f"'token_url' + 'client_id'"
+                f"OAuth rule for {hostname}: must specify "
+                f"'token_url' and 'client_id'"
             )
 
         mgr = OAuthTokenManager(

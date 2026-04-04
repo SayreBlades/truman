@@ -178,7 +178,9 @@ Both share the same workspace and run simultaneously.
 services:
   gateway:
     image: ghcr.io/sayreblades/truman-gateway:latest
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - gateway-data:/data
     networks: [sandbox, egress]

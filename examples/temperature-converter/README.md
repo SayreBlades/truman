@@ -21,10 +21,10 @@ cp .devcontainer/.env.example .devcontainer/.env
 
 This example has two devcontainer configurations:
 
-| Config | Service | Network | Purpose |
-|--------|---------|---------|---------|
-| **Agent (Sandboxed)** | `agent` | `sandbox` only | AI agent — all traffic through gateway |
-| **Development** | `dev` | `sandbox` + `egress` | Human developer — direct internet, port forwarding |
+| Config                | Service | Network              | Purpose                                            |
+|-----------------------|---------|----------------------|----------------------------------------------------|
+| **Agent (Sandboxed)** | `agent` | `sandbox` only       | AI agent — all traffic through gateway             |
+| **Development**       | `dev`   | `sandbox` + `egress` | Human developer — direct internet, port forwarding |
 
 ### VS Code
 

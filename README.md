@@ -92,7 +92,8 @@ truman/
 │   ├── gateway/          # MITM credential-injection proxy
 │   │   ├── Dockerfile
 │   │   ├── gateway.py
-│   │   └── requirements.txt
+│   │   ├── pyproject.toml
+│   │   └── uv.lock
 │   └── agent/            # Pi coding agent container
 │       ├── Dockerfile
 │       └── entrypoint.sh

@@ -1,0 +1,9 @@
+[project]
+name = "gateway"
+version = "0.1.0"
+description = "Secret-injection MITM forward proxy"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.9,<4",
+    "cryptography>=42,<44",
+]

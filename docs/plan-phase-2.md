@@ -410,9 +410,10 @@ update-ca-certificates 2>/dev/null
 
 ```
 gateway/
-├── Dockerfile          # Python 3.12-slim + aiohttp + cryptography
+├── Dockerfile          # Python 3.12-slim + uv + aiohttp + cryptography
 ├── gateway.py          # Single-file gateway (~400 lines)
-└── requirements.txt    # aiohttp, cryptography
+├── pyproject.toml      # uv project – aiohttp, cryptography
+└── uv.lock             # Locked dependency versions
 ```
 
 ### gateway/Dockerfile
@@ -420,19 +421,21 @@ gateway/
 ```dockerfile
 FROM python:3.12-slim
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 COPY gateway.py .
 
 VOLUME /data
 EXPOSE 8080
 
-CMD ["python", "gateway.py"]
+CMD ["uv", "run", "--frozen", "python", "-u", "gateway.py"]
 ```
 
 ---
@@ -451,7 +454,8 @@ CMD ["python", "gateway.py"]
 ├── gateway/
 │   ├── Dockerfile              # Gateway image
 │   ├── gateway.py              # MITM forward proxy
-│   └── requirements.txt        # aiohttp, cryptography
+│   ├── pyproject.toml          # uv project – aiohttp, cryptography
+│   └── uv.lock                 # Locked dependency versions
 ├── docs/
 │   ├── plan.md                 # Full architecture plan
 │   ├── plan-phase-1.md         # Phase 1 design doc

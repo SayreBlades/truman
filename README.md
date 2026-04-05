@@ -38,12 +38,12 @@ See the **[devcontainer README](template/.devcontainer/README.md)** for full usa
 
 ```mermaid
 flowchart TB
-    subgraph Docker["🐳 Docker Environment\n\n"]
-        subgraph SandboxNet["🔒 sandbox network (internal only)"]
+    subgraph Docker["🐳 Docker Environment\n"]
+        subgraph SandboxNet["🔒 sandbox network (internal only)\n"]
             Agent["🤖 Agent Container<br/>• pi + gh CLI + tools<br/>• HTTPS_PROXY=...<br/>• Only dummy API keys<br/>• Trusts gateway CA cert"]
         end
         
-        subgraph EgressNet["🌐 egress network"]
+        subgraph EgressNet["🌐 egress network\n"]
             Gateway["🛡️ Gateway Container<br/>• Python MITM proxy<br/>• Intercepts configured hosts<br/>• Injects real credentials from gateway.yaml"]
         end
         

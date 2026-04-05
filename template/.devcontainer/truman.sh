@@ -6,6 +6,7 @@
 #   .devcontainer/truman.sh init       Interactive setup wizard
 #   .devcontainer/truman.sh start      Validate config + devcontainer up
 #   .devcontainer/truman.sh run-pi     devcontainer exec ... pi (args forwarded)
+#   .devcontainer/truman.sh run-pi -T  docker compose exec -T (for RPC/pipe I/O)
 #   .devcontainer/truman.sh stop [-v]   Stop containers (-v to wipe volumes)
 #   .devcontainer/truman.sh status     Show configuration & container status
 # ─────────────────────────────────────────────────────────────────────
@@ -556,10 +557,37 @@ cmd_start() {
 }
 
 cmd_run_pi() {
+    local no_tty=false
+    local pi_args=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -T) no_tty=true; shift ;;
+            *) pi_args+=("$1"); shift ;;
+        esac
+    done
+
     if ! validate_config; then
         exit 1
     fi
-    devcontainer exec --workspace-folder "$PROJECT_ROOT" pi "$@"
+
+    if $no_tty; then
+        # No-TTY mode: pipe-friendly I/O for JSONL RPC (e.g. Emacs pi-coding-agent).
+        # Find the agent container by label (works regardless of how containers were
+        # started — devcontainer up, docker compose up, VS Code, etc.)
+        local container
+        container=$(docker ps -q \
+            --filter "label=com.docker.compose.service=agent" \
+            --filter "label=com.docker.compose.project.working_dir=$SCRIPT_DIR")
+        if [ -z "$container" ]; then
+            err "Agent container not running. Start with: .devcontainer/truman.sh start"
+            exit 1
+        fi
+        # -i keeps stdin open (no TTY); -u pi because entrypoint runs as root.
+        exec docker exec -i -u pi "$container" pi "${pi_args[@]+"${pi_args[@]}"}"
+    else
+        devcontainer exec --workspace-folder "$PROJECT_ROOT" pi "${pi_args[@]+"${pi_args[@]}"}"
+    fi
 }
 
 cmd_stop() {
@@ -692,6 +720,7 @@ cmd_help() {
     echo "  init       Interactive setup wizard (creates gateway.yaml, .env.agent)"
     echo "  start      Validate config and start the devcontainer"
     echo "  run-pi     Run pi inside the container (args forwarded)"
+    echo "             -T  No pseudo-TTY (pipe-friendly I/O for Emacs/RPC)"
     echo "  stop [-v]  Stop all containers (-v to wipe volumes)"
     echo "  status     Show configuration and container status"
     echo "  validate   Check configuration (non-interactive)"

@@ -5,6 +5,7 @@
 Truman provides a set of containers that give any project a secure, sandboxed AI coding agent. It complies with the [devcontainer specification](https://containers.dev), so it works with VS Code, the `devcontainer` CLI, GitHub Codespaces, and any other devcontainer-compatible tool.
 
 - **Agent never sees real API keys** — gateway injects credentials transparently
+- **Host filesystem protected** — only those files bind-mounted into the container are exposed (project scope by default)
 - **Network isolation** — agent cannot access internet directly, only through MITM proxy
 - **Auto-refreshing tokens** — OAuth tokens refresh automatically
 - **Works on any project** — drop `.devcontainer/` into your repo and go
@@ -13,10 +14,10 @@ Truman provides a set of containers that give any project a secure, sandboxed AI
 
 ### Prerequisites
 
-- Docker Desktop
-- [pi](https://github.com/badlogic/pi-mono) installed on the host (for OAuth login)
+- Docker
 - For VS Code: [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-- For CLI: `npm install -g @devcontainers/cli` (optional)
+- For Devcontainer CLI: `npm install -g @devcontainers/cli` (optional)
+- Optional: [pi](https://github.com/badlogic/pi-mono) installed on the host (for OAuth login)
 
 ### Add truman to your project
 
